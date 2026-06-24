@@ -1,0 +1,121 @@
+// Prisma schema for Antonia Vet booking & clinic management system
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum AppointmentStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum Species {
+  PERRO
+  GATO
+  OTRO
+}
+
+/// Servicios veterinarios disponibles, cada uno con tarifa base
+model Service {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String
+  basePrice   Int
+  durationMin Int      @default(45)
+  active      Boolean  @default(true)
+  appointments Appointment[]
+}
+
+/// Comunas atendidas a domicilio, cada una con un recargo de traslado
+model Comuna {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  surcharge Int      @default(0)
+  active    Boolean  @default(true)
+  appointments Appointment[]
+}
+
+/// Hora médica agendada por un tutor
+model Appointment {
+  id            String            @id @default(cuid())
+  ownerName     String
+  ownerEmail    String
+  ownerPhone    String
+  petName       String
+  species       Species
+  petAge        String
+  reason        String
+  serviceId     String
+  service       Service           @relation(fields: [serviceId], references: [id])
+  comunaId      String
+  comuna        Comuna            @relation(fields: [comunaId], references: [id])
+  speciesSurcharge Int            @default(0)
+  totalPrice    Int
+  date          String            // YYYY-MM-DD
+  time          String            // HH:mm
+  status        AppointmentStatus @default(PENDING_PAYMENT)
+  paymentRef    String?
+  patientId     String?
+  patient       Patient?          @relation(fields: [patientId], references: [id])
+  consultation  Consultation?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+/// Ficha clínica del paciente (mascota)
+model Patient {
+  id          String        @id @default(cuid())
+  name        String
+  species     Species
+  breed       String?
+  ownerName   String
+  ownerEmail  String
+  ownerPhone  String
+  photo       String?       // data URL (base64)
+  antecedentes String?      // historial / antecedentes médicos
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  appointments Appointment[]
+  consultations Consultation[]
+}
+
+/// Registro de la consulta: constantes vitales, indicaciones e informe
+model Consultation {
+  id            String    @id @default(cuid())
+  appointmentId String    @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+  patientId     String
+  patient       Patient   @relation(fields: [patientId], references: [id])
+
+  temperature   Float?    // °C
+  weight        Float?    // kg
+  heartRate     Int?      // lpm
+  respRate      Int?      // rpm
+  notes         String?   // observaciones de la consulta
+  diagnosis     String?
+  indications   String?   // indicaciones para el tutor
+
+  reportContent String?
+  reportSentAt  DateTime?
+  reportSentTo  String?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+/// Usuario administrador (veterinaria)
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+}
